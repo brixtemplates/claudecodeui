@@ -46,7 +46,7 @@ function AppContent() {
   const { sessionId } = useParams();
   const { t } = useTranslation('common');
   
-  const { updateAvailable, latestVersion, currentVersion, releaseInfo } = useVersionCheck('siteboon', 'claudecodeui');
+  const { updateAvailable, latestVersion, currentVersion, releaseInfo } = useVersionCheck('brixtemplates', 'claudecodeui');
   const [showVersionModal, setShowVersionModal] = useState(false);
   
   const [projects, setProjects] = useState([]);

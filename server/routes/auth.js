@@ -4,6 +4,19 @@ import { userDb, db } from '../database/db.js';
 import { generateToken, authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+const COOKIE_NAME = 'auth_token';
+const ONE_YEAR_MS = 1000 * 60 * 60 * 24 * 365;
+
+const getCookieOptions = (req) => {
+  const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isSecure,
+    path: '/',
+    maxAge: ONE_YEAR_MS
+  };
+};
 
 // Check auth status and setup requirements
 router.get('/status', async (req, res) => {
@@ -52,6 +65,7 @@ router.post('/register', async (req, res) => {
       
       // Generate token
       const token = generateToken(user);
+      res.cookie(COOKIE_NAME, token, getCookieOptions(req));
       
       // Update last login
       userDb.updateLastLogin(user.id);
@@ -102,6 +116,7 @@ router.post('/login', async (req, res) => {
     
     // Generate token
     const token = generateToken(user);
+    res.cookie(COOKIE_NAME, token, getCookieOptions(req));
     
     // Update last login
     userDb.updateLastLogin(user.id);
@@ -129,6 +144,7 @@ router.get('/user', authenticateToken, (req, res) => {
 router.post('/logout', authenticateToken, (req, res) => {
   // In a simple JWT system, logout is mainly client-side
   // This endpoint exists for consistency and potential future logging
+  res.clearCookie(COOKIE_NAME, getCookieOptions(req));
   res.json({ success: true, message: 'Logged out successfully' });
 });
 

@@ -33,13 +33,13 @@ export function useWebSocket() {
       } else {
         // OSS mode: Connect to same host:port that served the page
         const token = localStorage.getItem('auth-token');
-        if (!token) {
-          console.warn('No authentication token found for WebSocket connection');
-          return;
-        }
-
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+        if (token) {
+          wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+        } else {
+          console.warn('No authentication token found for WebSocket connection; attempting cookie-based auth.');
+          wsUrl = `${protocol}//${window.location.host}/ws`;
+        }
       }
 
       const websocket = new WebSocket(wsUrl);

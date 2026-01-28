@@ -16,6 +16,7 @@ export const authenticatedFetch = (url, options = {}) => {
 
   return fetch(url, {
     ...options,
+    credentials: 'include',
     headers: {
       ...defaultHeaders,
       ...options.headers,
@@ -27,14 +28,16 @@ export const authenticatedFetch = (url, options = {}) => {
 export const api = {
   // Auth endpoints (no token required)
   auth: {
-    status: () => fetch('/api/auth/status'),
+    status: () => fetch('/api/auth/status', { credentials: 'include' }),
     login: (username, password) => fetch('/api/auth/login', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     }),
     register: (username, password) => fetch('/api/auth/register', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     }),

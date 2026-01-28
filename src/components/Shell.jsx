@@ -63,13 +63,13 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
         wsUrl = `${protocol}//${window.location.host}/shell`;
       } else {
         const token = localStorage.getItem('auth-token');
-        if (!token) {
-          console.error('No authentication token found for Shell WebSocket connection');
-          return;
-        }
-
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//${window.location.host}/shell?token=${encodeURIComponent(token)}`;
+        if (token) {
+          wsUrl = `${protocol}//${window.location.host}/shell?token=${encodeURIComponent(token)}`;
+        } else {
+          console.warn('No authentication token found for Shell WebSocket connection; attempting cookie-based auth.');
+          wsUrl = `${protocol}//${window.location.host}/shell`;
+        }
       }
 
       ws.current = new WebSocket(wsUrl);

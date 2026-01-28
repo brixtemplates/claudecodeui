@@ -51,6 +51,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import os from 'os';
 import http from 'http';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { promises as fsPromises } from 'fs';
 import { spawn } from 'child_process';
 import pty from 'node-pty';
@@ -188,10 +189,28 @@ async function setupProjectsWatcher() {
 
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 const ptySessionsMap = new Map();
 const PTY_SESSION_TIMEOUT = 30 * 60 * 1000;
+
+const parseCookieHeader = (cookieHeader = '') => {
+    return cookieHeader
+        .split(';')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .reduce((acc, part) => {
+            const separatorIndex = part.indexOf('=');
+            if (separatorIndex === -1) {
+                return acc;
+            }
+            const key = decodeURIComponent(part.slice(0, separatorIndex).trim());
+            const value = decodeURIComponent(part.slice(separatorIndex + 1).trim());
+            acc[key] = value;
+            return acc;
+        }, {});
+};
 
 // Single WebSocket server that handles both paths
 const wss = new WebSocketServer({
@@ -214,8 +233,10 @@ const wss = new WebSocketServer({
         // Normal mode: verify token
         // Extract token from query parameters or headers
         const url = new URL(info.req.url, 'http://localhost');
-        const token = url.searchParams.get('token') ||
-            info.req.headers.authorization?.split(' ')[1];
+        const headerToken = info.req.headers.authorization?.split(' ')[1];
+        const cookies = parseCookieHeader(info.req.headers.cookie || '');
+        const cookieToken = cookies.auth_token;
+        const token = url.searchParams.get('token') || headerToken || cookieToken;
 
         // Verify token
         const user = authenticateWebSocket(token);
@@ -235,6 +256,7 @@ const wss = new WebSocketServer({
 app.locals.wss = wss;
 
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json({
   limit: '50mb',
   type: (req) => {

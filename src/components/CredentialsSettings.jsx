@@ -23,7 +23,7 @@ function CredentialsSettings() {
   const [newlyCreatedKey, setNewlyCreatedKey] = useState(null);
 
   // Version check hook
-  const { updateAvailable, latestVersion, releaseInfo } = useVersionCheck('siteboon', 'claudecodeui');
+  const { updateAvailable, latestVersion, releaseInfo } = useVersionCheck('brixtemplates', 'claudecodeui');
 
   useEffect(() => {
     fetchData();

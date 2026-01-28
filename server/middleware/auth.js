@@ -44,6 +44,11 @@ const authenticateToken = async (req, res, next) => {
     token = req.query.token;
   }
 
+  // Fallback to cookie (for same-origin sessions without localStorage tokens)
+  if (!token && req.cookies?.auth_token) {
+    token = req.cookies.auth_token;
+  }
+
   if (!token) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }

@@ -70,33 +70,32 @@ export const AuthProvider = ({ children }) => {
 
       if (statusData.needsSetup) {
         setNeedsSetup(true);
+        setUser(null);
         setIsLoading(false);
         return;
       }
 
-      // If we have a token, verify it
-      if (token) {
-        try {
-          const userResponse = await api.auth.user();
+      setNeedsSetup(false);
 
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            setUser(userData.user);
-            setNeedsSetup(false);
-            await checkOnboardingStatus();
-          } else {
-            // Token is invalid
-            localStorage.removeItem('auth-token');
-            setToken(null);
-            setUser(null);
-          }
-        } catch (error) {
-          console.error('Token verification failed:', error);
-          localStorage.removeItem('auth-token');
-          setToken(null);
-          setUser(null);
+      try {
+        const userResponse = await api.auth.user();
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setUser(userData.user);
+          await checkOnboardingStatus();
+          return;
         }
+      } catch (error) {
+        console.error('User verification failed:', error);
       }
+
+      // Not authenticated (or token invalid)
+      if (token) {
+        localStorage.removeItem('auth-token');
+        setToken(null);
+      }
+      setUser(null);
     } catch (error) {
       console.error('[AuthContext] Auth status check failed:', error);
       setError('Failed to check authentication status');
@@ -160,11 +159,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('auth-token');
     
     // Optional: Call logout endpoint for logging
-    if (token) {
-      api.auth.logout().catch(error => {
-        console.error('Logout endpoint error:', error);
-      });
-    }
+    api.auth.logout().catch(error => {
+      console.error('Logout endpoint error:', error);
+    });
   };
 
   const value = {
