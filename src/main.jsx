@@ -7,6 +7,11 @@ import 'katex/dist/katex.min.css'
 // Initialize i18n
 import './i18n/config.js'
 
+const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+if (hostname === 'zai.brixcoder.com' || hostname.startsWith('zai.')) {
+  document.documentElement.dataset.brand = 'brix';
+}
+
 // Clean up stale service workers on app load to prevent caching issues after builds
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
