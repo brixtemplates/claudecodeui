@@ -36,6 +36,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useVersionCheck } from './hooks/useVersionCheck';
 import useLocalStorage from './hooks/useLocalStorage';
 import { api, authenticatedFetch } from './utils/api';
+import { isZaiHost } from './utils/hostFlags.js';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n from './i18n/config.js';
 
@@ -45,6 +46,7 @@ function AppContent() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
   const { t } = useTranslation('common');
+  const zaiHost = isZaiHost();
   
   const { updateAvailable, latestVersion, currentVersion, releaseInfo } = useVersionCheck('brixtemplates', 'claudecodeui');
   const [showVersionModal, setShowVersionModal] = useState(false);
@@ -360,7 +362,7 @@ function AppContent() {
         let session = project.sessions?.find(s => s.id === sessionId);
         if (session) {
           setSelectedProject(project);
-          setSelectedSession({ ...session, __provider: 'claude' });
+          setSelectedSession({ ...session, __provider: zaiHost ? 'zai' : 'claude' });
           // Only switch to chat tab if we're loading a different session
           if (shouldSwitchTab) {
             setActiveTab('chat');

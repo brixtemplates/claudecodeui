@@ -628,7 +628,7 @@ class ResponseCollector {
  *                          - Source for auto-generated branch names (if createBranch=true and no branchName)
  *                          - Fallback for PR title if no commits are made
  *
- * @param {string} provider - (Optional) AI provider to use. Options: 'claude' | 'cursor'
+ * @param {string} provider - (Optional) AI provider to use. Options: 'claude' | 'cursor' | 'zai'
  *                           Default: 'claude'
  *
  * @param {boolean} stream - (Optional) Enable Server-Sent Events (SSE) streaming for real-time updates.
@@ -746,7 +746,7 @@ class ResponseCollector {
  * Input Validations (400 Bad Request):
  *   - Either githubUrl OR projectPath must be provided (not neither)
  *   - message must be non-empty string
- *   - provider must be 'claude' or 'cursor'
+ *   - provider must be 'claude', 'cursor', 'codex', or 'zai'
  *   - createBranch/createPR requires githubUrl OR projectPath (not neither)
  *   - branchName must pass Git naming rules (if provided)
  *
@@ -854,8 +854,8 @@ router.post('/', validateExternalApiKey, async (req, res) => {
     return res.status(400).json({ error: 'message is required' });
   }
 
-  if (!['claude', 'cursor', 'codex'].includes(provider)) {
-    return res.status(400).json({ error: 'provider must be "claude", "cursor", or "codex"' });
+  if (!['claude', 'cursor', 'codex', 'zai'].includes(provider)) {
+    return res.status(400).json({ error: 'provider must be "claude", "cursor", "codex", or "zai"' });
   }
 
   // Validate GitHub branch/PR creation requirements
@@ -939,7 +939,7 @@ router.post('/', validateExternalApiKey, async (req, res) => {
     }
 
     // Start the appropriate session
-    if (provider === 'claude') {
+    if (provider === 'claude' || provider === 'zai') {
       console.log('🤖 Starting Claude SDK session');
 
       await queryClaudeSDK(message.trim(), {

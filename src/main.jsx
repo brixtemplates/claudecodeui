@@ -6,9 +6,9 @@ import 'katex/dist/katex.min.css'
 
 // Initialize i18n
 import './i18n/config.js'
+import { isZaiHost } from './utils/hostFlags.js'
 
-const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
-if (hostname === 'zai.brixcoder.com' || hostname.startsWith('zai.')) {
+if (isZaiHost()) {
   document.documentElement.dataset.brand = 'brix';
 }
 

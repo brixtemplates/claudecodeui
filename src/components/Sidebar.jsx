@@ -11,9 +11,11 @@ import { cn } from '../lib/utils';
 import ClaudeLogo from './ClaudeLogo';
 import CursorLogo from './CursorLogo.jsx';
 import CodexLogo from './CodexLogo.jsx';
+import ZaiLogo from './ZaiLogo.jsx';
 import TaskIndicator from './TaskIndicator';
 import ProjectCreationWizard from './ProjectCreationWizard';
 import { api } from '../utils/api';
+import { isZaiHost } from '../utils/hostFlags';
 import { useTaskMaster } from '../contexts/TaskMasterContext';
 import { useTasksSettings } from '../contexts/TasksSettingsContext';
 
@@ -66,6 +68,7 @@ function Sidebar({
   onToggleSidebar
 }) {
   const { t } = useTranslation('sidebar');
+  const zaiHost = isZaiHost();
   const [expandedProjects, setExpandedProjects] = useState(new Set());
   const [editingProject, setEditingProject] = useState(null);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -228,7 +231,8 @@ function Sidebar({
   // Helper function to get all sessions for a project (initial + additional)
   const getAllSessions = (project) => {
     // Combine Claude, Cursor, and Codex sessions; Sidebar will display icon per row
-    const claudeSessions = [...(project.sessions || []), ...(additionalSessions[project.name] || [])].map(s => ({ ...s, __provider: 'claude' }));
+    const claudeSessions = [...(project.sessions || []), ...(additionalSessions[project.name] || [])]
+      .map(s => ({ ...s, __provider: zaiHost ? 'zai' : 'claude' }));
     const cursorSessions = (project.cursorSessions || []).map(s => ({ ...s, __provider: 'cursor' }));
     const codexSessions = (project.codexSessions || []).map(s => ({ ...s, __provider: 'codex' }));
     // Sort by most recent activity/date
@@ -1180,6 +1184,7 @@ function Sidebar({
                           // Handle Claude, Cursor, and Codex session formats
                           const isCursorSession = session.__provider === 'cursor';
                           const isCodexSession = session.__provider === 'codex';
+                          const isZaiSession = session.__provider === 'zai';
 
                           // Calculate if session is active (within last 10 minutes)
                           const getSessionDate = () => {
@@ -1240,6 +1245,8 @@ function Sidebar({
                                       <CursorLogo className="w-3 h-3" />
                                     ) : isCodexSession ? (
                                       <CodexLogo className="w-3 h-3" />
+                                    ) : isZaiSession ? (
+                                      <ZaiLogo className="w-3 h-3" />
                                     ) : (
                                       <ClaudeLogo className="w-3 h-3" />
                                     )}
@@ -1264,6 +1271,8 @@ function Sidebar({
                                       <CursorLogo className="w-3 h-3" />
                                     ) : isCodexSession ? (
                                       <CodexLogo className="w-3 h-3" />
+                                    ) : isZaiSession ? (
+                                      <ZaiLogo className="w-3 h-3" />
                                     ) : (
                                       <ClaudeLogo className="w-3 h-3" />
                                     )}
@@ -1302,6 +1311,8 @@ function Sidebar({
                                     <CursorLogo className="w-3 h-3 mt-0.5 flex-shrink-0" />
                                   ) : isCodexSession ? (
                                     <CodexLogo className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  ) : isZaiSession ? (
+                                    <ZaiLogo className="w-3 h-3 mt-0.5 flex-shrink-0" />
                                   ) : (
                                     <ClaudeLogo className="w-3 h-3 mt-0.5 flex-shrink-0" />
                                   )}
@@ -1324,6 +1335,8 @@ function Sidebar({
                                           <CursorLogo className="w-3 h-3" />
                                         ) : isCodexSession ? (
                                           <CodexLogo className="w-3 h-3" />
+                                        ) : isZaiSession ? (
+                                          <ZaiLogo className="w-3 h-3" />
                                         ) : (
                                           <ClaudeLogo className="w-3 h-3" />
                                         )}

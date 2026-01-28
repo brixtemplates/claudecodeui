@@ -519,8 +519,8 @@ router.post('/generate-commit-message', async (req, res) => {
   }
 
   // Validate provider
-  if (!['claude', 'cursor'].includes(provider)) {
-    return res.status(400).json({ error: 'provider must be "claude" or "cursor"' });
+  if (!['claude', 'zai', 'cursor'].includes(provider)) {
+    return res.status(400).json({ error: 'provider must be "claude", "zai", or "cursor"' });
   }
 
   try {
@@ -576,7 +576,7 @@ router.post('/generate-commit-message', async (req, res) => {
  * Generates a commit message using AI (Claude SDK or Cursor CLI)
  * @param {Array<string>} files - List of changed files
  * @param {string} diffContext - Git diff content
- * @param {string} provider - 'claude' or 'cursor'
+ * @param {string} provider - 'claude', 'zai', or 'cursor'
  * @param {string} projectPath - Project directory path
  * @returns {Promise<string>} Generated commit message
  */
@@ -647,7 +647,7 @@ Generate the commit message:`;
     console.log('📝 Prompt length:', prompt.length);
 
     // Call the appropriate agent
-    if (provider === 'claude') {
+    if (provider === 'claude' || provider === 'zai') {
       await queryClaudeSDK(prompt, {
         cwd: projectPath,
         permissionMode: 'bypassPermissions',

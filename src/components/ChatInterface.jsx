@@ -28,6 +28,7 @@ import TodoList from './TodoList';
 import ClaudeLogo from './ClaudeLogo.jsx';
 import CursorLogo from './CursorLogo.jsx';
 import CodexLogo from './CodexLogo.jsx';
+import ZaiLogo from './ZaiLogo.jsx';
 import NextTaskBanner from './NextTaskBanner.jsx';
 import { useTasksSettings } from '../contexts/TasksSettingsContext';
 import { useTranslation } from 'react-i18next';
@@ -39,7 +40,8 @@ import { api, authenticatedFetch } from '../utils/api';
 import ThinkingModeSelector, { thinkingModes } from './ThinkingModeSelector.jsx';
 import Fuse from 'fuse.js';
 import CommandMenu from './CommandMenu';
-import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS } from '../../shared/modelConstants';
+import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS, ZAI_MODELS } from '../../shared/modelConstants';
+import { isZaiHost } from '../utils/hostFlags';
 
 import { safeJsonParse } from '../lib/utils.js';
 
@@ -310,7 +312,7 @@ function formatToolInputForDisplay(input) {
 }
 
 function getClaudePermissionSuggestion(message, provider) {
-  if (provider !== 'claude') return null;
+  if (!['claude', 'zai'].includes(provider)) return null;
   if (!message?.toolResult?.isError) return null;
 
   const toolName = message?.toolName;
@@ -588,17 +590,29 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                 </div>
               ) : (
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0 p-1">
-                  {(localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? (
+                  {(localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'cursor' ? (
                     <CursorLogo className="w-full h-full" />
-                  ) : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? (
+                  ) : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'codex' ? (
                     <CodexLogo className="w-full h-full" />
+                  ) : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'zai' ? (
+                    <ZaiLogo className="w-full h-full" />
                   ) : (
                     <ClaudeLogo className="w-full h-full" />
                   )}
                 </div>
               )}
               <div className="text-sm font-medium text-gray-900 dark:text-white">
-                {message.type === 'error' ? t('messageTypes.error') : message.type === 'tool' ? t('messageTypes.tool') : ((localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? t('messageTypes.cursor') : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude'))}
+                {message.type === 'error'
+                  ? t('messageTypes.error')
+                  : message.type === 'tool'
+                  ? t('messageTypes.tool')
+                  : ((localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'cursor'
+                  ? t('messageTypes.cursor')
+                  : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'codex'
+                  ? t('messageTypes.codex')
+                  : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'zai'
+                  ? t('messageTypes.zai')
+                  : t('messageTypes.claude'))}
               </div>
             </div>
           )}
@@ -1933,8 +1947,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
   const [visibleMessageCount, setVisibleMessageCount] = useState(100);
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
+  const zaiHost = isZaiHost();
   const [provider, setProvider] = useState(() => {
-    return localStorage.getItem('selected-provider') || 'claude';
+    return localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude');
   });
   const [cursorModel, setCursorModel] = useState(() => {
     return localStorage.getItem('cursor-model') || CURSOR_MODELS.DEFAULT;
@@ -1942,12 +1957,31 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
   const [claudeModel, setClaudeModel] = useState(() => {
     return localStorage.getItem('claude-model') || CLAUDE_MODELS.DEFAULT;
   });
+  const [zaiModel, setZaiModel] = useState(() => {
+    return localStorage.getItem('zai-model') || ZAI_MODELS.DEFAULT;
+  });
   const [codexModel, setCodexModel] = useState(() => {
     return localStorage.getItem('codex-model') || CODEX_MODELS.DEFAULT;
   });
+  const zaiModelLabel = useMemo(() => {
+    const match = ZAI_MODELS.OPTIONS.find(option => option.value === zaiModel);
+    return match ? match.label : zaiModel;
+  }, [zaiModel]);
   // Track provider transitions so we only clear approvals when provider truly changes.
   // This does not sync with the backend; it just prevents UI prompts from disappearing.
   const lastProviderRef = useRef(provider);
+
+  const availableProviders = useMemo(() => {
+    return zaiHost ? ['zai', 'claude', 'codex'] : ['claude', 'cursor', 'codex'];
+  }, [zaiHost]);
+
+  useEffect(() => {
+    if (!availableProviders.includes(provider)) {
+      const nextProvider = availableProviders[0];
+      setProvider(nextProvider);
+      localStorage.setItem('selected-provider', nextProvider);
+    }
+  }, [provider, availableProviders]);
 
   const resetStreamingState = useCallback(() => {
     if (streamTimerRef.current) {
@@ -1971,10 +2005,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
   // When selecting a session from Sidebar, auto-switch provider to match session's origin
   useEffect(() => {
     if (selectedSession && selectedSession.__provider && selectedSession.__provider !== provider) {
+      if (zaiHost && selectedSession.__provider === 'claude' && provider === 'zai') {
+        return;
+      }
       setProvider(selectedSession.__provider);
       localStorage.setItem('selected-provider', selectedSession.__provider);
     }
-  }, [selectedSession]);
+  }, [selectedSession, provider, zaiHost]);
 
   // Clear pending permission prompts when switching providers; filter when switching sessions.
   // This does not preserve prompts across provider changes; it exists to keep the
@@ -2175,14 +2212,31 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
         }]);
         break;
 
-      case 'model':
+      case 'model': {
         // Show model information
+        const available = data?.available || {};
+        const lines = [];
+        if (available.claude?.length) {
+          lines.push(`Claude: ${available.claude.join(', ')}`);
+        }
+        if (available.zai?.length) {
+          lines.push(`Z.AI: ${available.zai.join(', ')}`);
+        }
+        if (available.cursor?.length) {
+          lines.push(`Cursor: ${available.cursor.join(', ')}`);
+        }
+        if (available.codex?.length) {
+          lines.push(`Codex: ${available.codex.join(', ')}`);
+        }
+        const modelList = lines.length > 0 ? lines.join('\n\n') : 'No models available';
+        const currentModel = data?.current?.model ?? 'unknown';
         setChatMessages(prev => [...prev, {
           role: 'assistant',
-          content: `**Current Model**: ${data.current.model}\n\n**Available Models**:\n\nClaude: ${data.available.claude.join(', ')}\n\nCursor: ${data.available.cursor.join(', ')}`,
+          content: `**Current Model**: ${currentModel}\n\n**Available Models**:\n\n${modelList}`,
           timestamp: Date.now()
         }]);
         break;
+      }
 
       case 'cost': {
         const costMessage = `**Token Usage**: ${data.tokenUsage.used.toLocaleString()} / ${data.tokenUsage.total.toLocaleString()} (${data.tokenUsage.percentage}%)\n\n**Estimated Cost**:\n- Input: $${data.cost.input}\n- Output: $${data.cost.output}\n- **Total**: $${data.cost.total}\n\n**Model**: ${data.model}`;
@@ -2297,7 +2351,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
         projectName: selectedProject.name,
         sessionId: currentSessionId,
         provider,
-        model: provider === 'cursor' ? cursorModel : claudeModel,
+        model: provider === 'cursor'
+          ? cursorModel
+          : provider === 'codex'
+          ? codexModel
+          : provider === 'zai'
+          ? zaiModel
+          : claudeModel,
         tokenUsage: tokenBudget
       };
 
@@ -2345,7 +2405,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
         timestamp: Date.now()
       }]);
     }
-  }, [input, selectedProject, currentSessionId, provider, cursorModel, tokenBudget]);
+  }, [input, selectedProject, currentSessionId, provider, cursorModel, codexModel, zaiModel, claudeModel, tokenBudget]);
 
   // Handle built-in command actions
 
@@ -4539,7 +4599,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
         }
       });
     } else {
-      // Send Claude command (existing code)
+      // Send Claude/ZAI command (existing code)
       sendMessage({
         type: 'claude-command',
         command: messageContent,
@@ -4550,7 +4610,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
           resume: !!currentSessionId,
           toolsSettings: toolsSettings,
           permissionMode: permissionMode,
-          model: claudeModel,
+          model: provider === 'zai' ? zaiModel : claudeModel,
           images: uploadedImages // Pass images to backend
         }
       });
@@ -4572,10 +4632,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
     if (selectedProject) {
       safeLocalStorage.removeItem(`draft_input_${selectedProject.name}`);
     }
-  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode]);
+  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, zaiModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode]);
 
   const handleGrantToolPermission = useCallback((suggestion) => {
-    if (!suggestion || provider !== 'claude') {
+    if (!suggestion || !['claude', 'zai'].includes(provider)) {
       return { success: false };
     }
     return grantClaudeToolPermission(suggestion.entry);
@@ -4990,37 +5050,72 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                     )}
                   </button>
                   
-                  {/* Cursor Button */}
-                  <button
-                    onClick={() => {
-                      setProvider('cursor');
-                      localStorage.setItem('selected-provider', 'cursor');
-                      // Focus input after selection
-                      setTimeout(() => textareaRef.current?.focus(), 100);
-                    }}
-                    className={`group relative w-64 h-32 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all duration-200 hover:scale-105 hover:shadow-xl ${
-                      provider === 'cursor' 
-                        ? 'border-purple-500 shadow-lg ring-2 ring-purple-500/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-purple-400'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center h-full gap-3">
-                      <CursorLogo className="w-10 h-10" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">Cursor</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('providerSelection.providerInfo.cursorEditor')}</p>
-                      </div>
-                    </div>
-                    {provider === 'cursor' && (
-                      <div className="absolute top-2 right-2">
-                        <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
+                  {/* Z.AI Button (ZAI host only) */}
+                  {zaiHost && (
+                    <button
+                      onClick={() => {
+                        setProvider('zai');
+                        localStorage.setItem('selected-provider', 'zai');
+                        setTimeout(() => textareaRef.current?.focus(), 100);
+                      }}
+                      className={`group relative w-64 h-32 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all duration-200 hover:scale-105 hover:shadow-xl ${
+                        provider === 'zai'
+                          ? 'border-purple-500 shadow-lg ring-2 ring-purple-500/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-400'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center justify-center h-full gap-3">
+                        <ZaiLogo className="w-10 h-10" />
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">Z.AI (GLM)</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t('providerSelection.providerInfo.zai')}</p>
                         </div>
                       </div>
-                    )}
-                  </button>
+                      {provider === 'zai' && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Cursor Button (hidden on ZAI host) */}
+                  {!zaiHost && (
+                    <button
+                      onClick={() => {
+                        setProvider('cursor');
+                        localStorage.setItem('selected-provider', 'cursor');
+                        // Focus input after selection
+                        setTimeout(() => textareaRef.current?.focus(), 100);
+                      }}
+                      className={`group relative w-64 h-32 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all duration-200 hover:scale-105 hover:shadow-xl ${
+                        provider === 'cursor'
+                          ? 'border-purple-500 shadow-lg ring-2 ring-purple-500/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-400'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center justify-center h-full gap-3">
+                        <CursorLogo className="w-10 h-10" />
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">Cursor</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t('providerSelection.providerInfo.cursorEditor')}</p>
+                        </div>
+                      </div>
+                      {provider === 'cursor' && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  )}
 
                   {/* Codex Button */}
                   <button
@@ -5074,6 +5169,20 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
+                  ) : provider === 'zai' ? (
+                    <select
+                      value={zaiModel}
+                      onChange={(e) => {
+                        const newModel = e.target.value;
+                        setZaiModel(newModel);
+                        localStorage.setItem('zai-model', newModel);
+                      }}
+                      className="pl-4 pr-10 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-w-[160px]"
+                    >
+                      {ZAI_MODELS.OPTIONS.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
                   ) : provider === 'codex' ? (
                     <select
                       value={codexModel}
@@ -5109,6 +5218,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {provider === 'claude'
                     ? t('providerSelection.readyPrompt.claude', { model: claudeModel })
+                    : provider === 'zai'
+                    ? t('providerSelection.readyPrompt.zai', { model: zaiModelLabel })
                     : provider === 'cursor'
                     ? t('providerSelection.readyPrompt.cursor', { model: cursorModel })
                     : provider === 'codex'
@@ -5213,15 +5324,25 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
             <div className="w-full">
               <div className="flex items-center space-x-3 mb-2">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0 p-1 bg-transparent">
-                  {(localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? (
+                  {(localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'cursor' ? (
                     <CursorLogo className="w-full h-full" />
-                  ) : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? (
+                  ) : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'codex' ? (
                     <CodexLogo className="w-full h-full" />
+                  ) : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'zai' ? (
+                    <ZaiLogo className="w-full h-full" />
                   ) : (
                     <ClaudeLogo className="w-full h-full" />
                   )}
                 </div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">{(localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? 'Cursor' : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? 'Codex' : 'Claude'}</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  {(localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'cursor'
+                    ? 'Cursor'
+                    : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'codex'
+                    ? 'Codex'
+                    : (localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude')) === 'zai'
+                    ? 'Z.AI'
+                    : 'Claude'}
+                </div>
                 {/* Abort button removed - functionality not yet implemented at backend */}
               </div>
               <div className="w-full text-sm text-gray-500 dark:text-gray-400 pl-3 sm:pl-0">
@@ -5386,15 +5507,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
             </button>
             
               {/* Thinking Mode Selector */}
-              {
-                provider === 'claude' && (
-
-                  <ThinkingModeSelector
-                    selectedMode={thinkingMode}
-                    onModeChange={setThinkingMode}
-                    className=""
-                  />
-                )}
+              {['claude', 'zai'].includes(provider) && (
+                <ThinkingModeSelector
+                  selectedMode={thinkingMode}
+                  onModeChange={setThinkingMode}
+                  className=""
+                />
+              )}
             {/* Token usage pie chart - positioned next to mode indicator */}
             <TokenUsagePie
               used={tokenBudget?.used || 0}
@@ -5617,7 +5736,15 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
                 const isExpanded = e.target.scrollHeight > lineHeight * 2;
                 setIsTextareaExpanded(isExpanded);
               }}
-              placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
+              placeholder={t('input.placeholder', {
+                provider: provider === 'cursor'
+                  ? t('messageTypes.cursor')
+                  : provider === 'codex'
+                  ? t('messageTypes.codex')
+                  : provider === 'zai'
+                  ? t('messageTypes.zai')
+                  : t('messageTypes.claude')
+              })}
               disabled={isLoading}
               className="chat-input-placeholder block w-full pl-12 pr-20 sm:pr-40 py-1.5 sm:py-4 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-none min-h-[50px] sm:min-h-[80px] max-h-[40vh] sm:max-h-[300px] overflow-y-auto text-base leading-6 transition-all duration-200"
               style={{ height: '50px' }}

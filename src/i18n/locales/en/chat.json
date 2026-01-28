@@ -9,6 +9,7 @@
     "error": "Error",
     "tool": "Tool",
     "claude": "Claude",
+    "zai": "Z.AI",
     "cursor": "Cursor",
     "codex": "Codex"
   },
@@ -150,11 +151,13 @@
     "selectModel": "Select Model",
     "providerInfo": {
       "anthropic": "by Anthropic",
+      "zai": "by Z.AI",
       "openai": "by OpenAI",
       "cursorEditor": "AI Code Editor"
     },
     "readyPrompt": {
       "claude": "Ready to use Claude with {{model}}. Start typing your message below.",
+      "zai": "Ready to use Z.AI with {{model}}. Start typing your message below.",
       "cursor": "Ready to use Cursor with {{model}}. Start typing your message below.",
       "codex": "Ready to use Codex with {{model}}. Start typing your message below.",
       "default": "Select a provider above to begin"

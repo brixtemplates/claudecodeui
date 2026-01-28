@@ -24,6 +24,22 @@ export const CLAUDE_MODELS = {
 };
 
 /**
+ * Z.AI (GLM) Models
+ *
+ * Note: These labels map to Claude model slots.
+ * The actual GLM model used is controlled by ANTHROPIC_DEFAULT_* env vars.
+ */
+export const ZAI_MODELS = {
+  OPTIONS: [
+    { value: 'sonnet', label: 'GLM-4.7 (Sonnet)' },
+    { value: 'opus', label: 'GLM-4.7 (Opus)' },
+    { value: 'haiku', label: 'GLM-4.5-Air (Haiku)' }
+  ],
+
+  DEFAULT: 'sonnet'
+};
+
+/**
  * Cursor Models
  */
 export const CURSOR_MODELS = {
