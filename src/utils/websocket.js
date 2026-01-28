@@ -5,6 +5,8 @@ export function useWebSocket() {
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef(null);
+  const preferCookieAuthRef = useRef(false);
+  const attemptedCookieFallbackRef = useRef(false);
 
   useEffect(() => {
     connect();
@@ -25,26 +27,34 @@ export function useWebSocket() {
 
       // Construct WebSocket URL
       let wsUrl;
+      let usedCookieAuth = false;
 
       if (isPlatform) {
         // Platform mode: Use same domain as the page (goes through proxy)
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         wsUrl = `${protocol}//${window.location.host}/ws`;
+        usedCookieAuth = true;
       } else {
         // OSS mode: Connect to same host:port that served the page
         const token = localStorage.getItem('auth-token');
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        if (token) {
+        if (!preferCookieAuthRef.current && token) {
           wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+          usedCookieAuth = false;
         } else {
           console.warn('No authentication token found for WebSocket connection; attempting cookie-based auth.');
           wsUrl = `${protocol}//${window.location.host}/ws`;
+          usedCookieAuth = true;
         }
       }
 
       const websocket = new WebSocket(wsUrl);
+      let opened = false;
 
       websocket.onopen = () => {
+        opened = true;
+        attemptedCookieFallbackRef.current = false;
+        preferCookieAuthRef.current = usedCookieAuth;
         setIsConnected(true);
         setWs(websocket);
       };
@@ -61,7 +71,15 @@ export function useWebSocket() {
       websocket.onclose = () => {
         setIsConnected(false);
         setWs(null);
-        
+
+        // If token-based auth failed before opening, retry once with cookie auth.
+        if (!opened && !usedCookieAuth && !attemptedCookieFallbackRef.current) {
+          attemptedCookieFallbackRef.current = true;
+          preferCookieAuthRef.current = true;
+          connect();
+          return;
+        }
+
         // Attempt to reconnect after 3 seconds
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
