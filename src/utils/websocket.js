@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { isZaiHost } from './hostFlags.js';
 
 export function useWebSocket() {
   const [ws, setWs] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef(null);
-  const preferCookieAuthRef = useRef(false);
+  const preferCookieAuthRef = useRef(isZaiHost());
   const attemptedCookieFallbackRef = useRef(false);
 
   useEffect(() => {
@@ -50,9 +51,19 @@ export function useWebSocket() {
 
       const websocket = new WebSocket(wsUrl);
       let opened = false;
+      const connectTimeout = setTimeout(() => {
+        if (!opened) {
+          try {
+            websocket.close();
+          } catch (error) {
+            console.warn('WebSocket close after timeout failed:', error);
+          }
+        }
+      }, 4000);
 
       websocket.onopen = () => {
         opened = true;
+        clearTimeout(connectTimeout);
         attemptedCookieFallbackRef.current = false;
         preferCookieAuthRef.current = usedCookieAuth;
         setIsConnected(true);
@@ -69,6 +80,7 @@ export function useWebSocket() {
       };
 
       websocket.onclose = () => {
+        clearTimeout(connectTimeout);
         setIsConnected(false);
         setWs(null);
 
