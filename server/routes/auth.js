@@ -133,6 +133,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Refresh token using cookie-based auth
+router.post('/refresh', authenticateToken, (req, res) => {
+  try {
+    const token = generateToken(req.user);
+    res.cookie(COOKIE_NAME, token, getCookieOptions(req));
+    res.json({
+      success: true,
+      user: { id: req.user.id, username: req.user.username },
+      token
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get current user (protected route)
 router.get('/user', authenticateToken, (req, res) => {
   res.json({

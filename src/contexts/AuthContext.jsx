@@ -83,6 +83,23 @@ export const AuthProvider = ({ children }) => {
         if (userResponse.ok) {
           const userData = await userResponse.json();
           setUser(userData.user);
+
+          // If we authenticated via cookie and token is missing, refresh it.
+          if (!token) {
+            try {
+              const refreshResponse = await api.auth.refresh();
+              if (refreshResponse.ok) {
+                const refreshData = await refreshResponse.json();
+                if (refreshData.token) {
+                  setToken(refreshData.token);
+                  localStorage.setItem('auth-token', refreshData.token);
+                }
+              }
+            } catch (refreshError) {
+              console.warn('Token refresh failed:', refreshError);
+            }
+          }
+
           await checkOnboardingStatus();
           return;
         }
