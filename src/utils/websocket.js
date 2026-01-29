@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { isZaiHost } from './hostFlags.js';
 
 export function useWebSocket() {
   const [ws, setWs] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef(null);
-  const preferCookieAuthRef = useRef(isZaiHost());
+  const preferCookieAuthRef = useRef(false);
   const attemptedCookieFallbackRef = useRef(false);
 
   useEffect(() => {
@@ -39,7 +38,7 @@ export function useWebSocket() {
         // OSS mode: Connect to same host:port that served the page
         const token = localStorage.getItem('auth-token');
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        if (!preferCookieAuthRef.current && token) {
+        if (token) {
           wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
           usedCookieAuth = false;
         } else {
