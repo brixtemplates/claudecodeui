@@ -1,7 +1,6 @@
 // Utility function for authenticated API calls
 export const authenticatedFetch = (url, options = {}) => {
   const isPlatform = import.meta.env.VITE_IS_PLATFORM === 'true';
-  const token = localStorage.getItem('auth-token');
 
   const defaultHeaders = {};
 
@@ -10,9 +9,8 @@ export const authenticatedFetch = (url, options = {}) => {
     defaultHeaders['Content-Type'] = 'application/json';
   }
 
-  if (!isPlatform && token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`;
-  }
+  // In OSS mode we rely on cookies for auth to avoid stale localStorage tokens.
+  // Platform mode skips auth entirely on the backend.
 
   return fetch(url, {
     ...options,

@@ -24,7 +24,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('auth-token'));
+  const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true);
@@ -71,6 +71,7 @@ export const AuthProvider = ({ children }) => {
       if (statusData.needsSetup) {
         setNeedsSetup(true);
         setUser(null);
+        setToken(null);
         setIsLoading(false);
         return;
       }
@@ -83,22 +84,7 @@ export const AuthProvider = ({ children }) => {
         if (userResponse.ok) {
           const userData = await userResponse.json();
           setUser(userData.user);
-
-          // If we authenticated via cookie and token is missing, refresh it.
-          if (!token) {
-            try {
-              const refreshResponse = await api.auth.refresh();
-              if (refreshResponse.ok) {
-                const refreshData = await refreshResponse.json();
-                if (refreshData.token) {
-                  setToken(refreshData.token);
-                  localStorage.setItem('auth-token', refreshData.token);
-                }
-              }
-            } catch (refreshError) {
-              console.warn('Token refresh failed:', refreshError);
-            }
-          }
+          setToken('cookie');
 
           await checkOnboardingStatus();
           return;
@@ -107,12 +93,9 @@ export const AuthProvider = ({ children }) => {
         console.error('User verification failed:', error);
       }
 
-      // Not authenticated (or token invalid)
-      if (token) {
-        localStorage.removeItem('auth-token');
-        setToken(null);
-      }
+      // Not authenticated
       setUser(null);
+      setToken(null);
     } catch (error) {
       console.error('[AuthContext] Auth status check failed:', error);
       setError('Failed to check authentication status');
@@ -129,9 +112,8 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        setToken(data.token);
+        setToken('cookie');
         setUser(data.user);
-        localStorage.setItem('auth-token', data.token);
         return { success: true };
       } else {
         setError(data.error || 'Login failed');
@@ -153,10 +135,9 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        setToken(data.token);
+        setToken('cookie');
         setUser(data.user);
         setNeedsSetup(false);
-        localStorage.setItem('auth-token', data.token);
         return { success: true };
       } else {
         setError(data.error || 'Registration failed');
@@ -173,7 +154,6 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('auth-token');
     
     // Optional: Call logout endpoint for logging
     api.auth.logout().catch(error => {

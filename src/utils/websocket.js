@@ -29,24 +29,11 @@ export function useWebSocket() {
       let wsUrl;
       let usedCookieAuth = false;
 
-      if (isPlatform) {
-        // Platform mode: Use same domain as the page (goes through proxy)
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//${window.location.host}/ws`;
-        usedCookieAuth = true;
-      } else {
-        // OSS mode: Connect to same host:port that served the page
-        const token = localStorage.getItem('auth-token');
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        if (token) {
-          wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
-          usedCookieAuth = false;
-        } else {
-          console.warn('No authentication token found for WebSocket connection; attempting cookie-based auth.');
-          wsUrl = `${protocol}//${window.location.host}/ws`;
-          usedCookieAuth = true;
-        }
-      }
+      // Always use cookie-based auth to avoid stale localStorage tokens.
+      // Platform mode also uses cookie-less auth on the backend.
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/ws`;
+      usedCookieAuth = true;
 
       const websocket = new WebSocket(wsUrl);
       let opened = false;
