@@ -43,6 +43,8 @@ import CommandMenu from './CommandMenu';
 import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS, ZAI_MODELS } from '../../shared/modelConstants';
 import { isZaiHost } from '../utils/hostFlags';
 
+const zaiHost = isZaiHost();
+
 import { safeJsonParse } from '../lib/utils.js';
 
 // Helper function to decode HTML entities in text
@@ -1947,7 +1949,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
   const [visibleMessageCount, setVisibleMessageCount] = useState(100);
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
-  const zaiHost = isZaiHost();
   const [provider, setProvider] = useState(() => {
     return localStorage.getItem('selected-provider') || (zaiHost ? 'zai' : 'claude');
   });

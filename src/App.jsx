@@ -41,12 +41,13 @@ import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n from './i18n/config.js';
 
 
+const zaiHost = isZaiHost();
+
 // Main App component with routing
 function AppContent() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
   const { t } = useTranslation('common');
-  const zaiHost = isZaiHost();
   
   const { updateAvailable, latestVersion, currentVersion, releaseInfo } = useVersionCheck('brixtemplates', 'claudecodeui');
   const [showVersionModal, setShowVersionModal] = useState(false);

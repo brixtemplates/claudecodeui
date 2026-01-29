@@ -19,6 +19,8 @@ import { isZaiHost } from '../utils/hostFlags';
 import { useTaskMaster } from '../contexts/TaskMasterContext';
 import { useTasksSettings } from '../contexts/TasksSettingsContext';
 
+const zaiHost = isZaiHost();
+
 // Move formatTimeAgo outside component to avoid recreation on every render
 const formatTimeAgo = (dateString, currentTime, t) => {
   const date = new Date(dateString);
@@ -68,7 +70,6 @@ function Sidebar({
   onToggleSidebar
 }) {
   const { t } = useTranslation('sidebar');
-  const zaiHost = isZaiHost();
   const [expandedProjects, setExpandedProjects] = useState(new Set());
   const [editingProject, setEditingProject] = useState(null);
   const [showNewProject, setShowNewProject] = useState(false);
