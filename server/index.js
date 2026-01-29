@@ -236,10 +236,10 @@ const wss = new WebSocketServer({
         const headerToken = info.req.headers.authorization?.split(' ')[1];
         const cookies = parseCookieHeader(info.req.headers.cookie || '');
         const cookieToken = cookies.auth_token;
-        const token = url.searchParams.get('token') || headerToken || cookieToken;
+        const queryToken = url.searchParams.get('token');
 
-        // Verify token
-        const user = authenticateWebSocket(token);
+        // Verify token (prefer cookie, then query, then header)
+        const user = authenticateWebSocket([cookieToken, queryToken, headerToken]);
         if (!user) {
             console.log('[WARN] WebSocket authentication failed');
             return false;

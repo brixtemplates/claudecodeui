@@ -18,6 +18,14 @@ const validateApiKey = (req, res, next) => {
   next();
 };
 
+const verifyToken = (token) => {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+};
+
 // JWT authentication middleware
 const authenticateToken = async (req, res, next) => {
   // Platform mode:  use single database user
@@ -37,37 +45,34 @@ const authenticateToken = async (req, res, next) => {
 
   // Normal OSS JWT validation
   const authHeader = req.headers['authorization'];
-  let token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const headerToken = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const queryToken = req.query.token;
+  const cookieToken = req.cookies?.auth_token;
 
-  // Also check query param for SSE endpoints (EventSource can't set headers)
-  if (!token && req.query.token) {
-    token = req.query.token;
-  }
-
-  // Fallback to cookie (for same-origin sessions without localStorage tokens)
-  if (!token && req.cookies?.auth_token) {
-    token = req.cookies.auth_token;
-  }
-
-  if (!token) {
+  const tokens = [cookieToken, headerToken, queryToken].filter(Boolean);
+  if (!tokens.length) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+  let decoded = null;
+  for (const candidate of tokens) {
+    decoded = verifyToken(candidate);
+    if (decoded) break;
+  }
 
-    // Verify user still exists and is active
-    const user = userDb.getUserById(decoded.userId);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid token. User not found.' });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Token verification error:', error);
+  if (!decoded) {
+    console.error('Token verification error: Invalid token');
     return res.status(403).json({ error: 'Invalid token' });
   }
+
+  // Verify user still exists and is active
+  const user = userDb.getUserById(decoded.userId);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid token. User not found.' });
+  }
+
+  req.user = user;
+  next();
 };
 
 // Generate JWT token (never expires)
@@ -99,17 +104,21 @@ const authenticateWebSocket = (token) => {
   }
 
   // Normal OSS JWT validation
-  if (!token) {
+  const tokens = Array.isArray(token) ? token : [token];
+  if (!tokens.filter(Boolean).length) {
     return null;
   }
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    return decoded;
-  } catch (error) {
-    console.error('WebSocket token verification error:', error);
-    return null;
+  for (const candidate of tokens) {
+    if (!candidate) continue;
+    const decoded = verifyToken(candidate);
+    if (decoded) {
+      return decoded;
+    }
   }
+
+  console.error('WebSocket token verification error: Invalid token');
+  return null;
 };
 
 export {
